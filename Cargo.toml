@@ -1,0 +1,15 @@
+[package]
+name = "worm"
+version = "0.1.0"
+authors = ["brsnb <49287229+brsnb@users.noreply.github.com>"]
+edition = "2018"
+
+[[bin]]
+name = "worm"
+doc = false
+
+[dependencies]
+xcb = "0.8.2"
+xcb-util = { version="0.2.0", features=["ewmh", "icccm", "keysyms"] }
+x11 = "2.18.1"
+
