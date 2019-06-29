@@ -1,6 +1,8 @@
 use xcb;
 use xcb_util::{ewmh, icccm, keysyms};
 
+use crate::key::Key;
+
 #[derive(Debug)]
 #[allow(non_snake_case)]
 struct InternedAtoms {
@@ -26,7 +28,7 @@ impl InternedAtoms {
     }
 }
 
-// Wrapping xcb::Window to not leak dependency
+/// Wrapping xcb::Window to not leak dependency
 #[derive(Clone, Debug, PartialEq)]
 pub struct Window(xcb::Window);
 
@@ -34,6 +36,16 @@ impl Window {
     pub fn as_xcb_window(&self) -> xcb::Window {
         self.0
     }
+}
+
+pub struct WindowChanges {
+    x: u32,
+    y: u32,
+    width: u32,
+    height: u32,
+    border_width: u32,
+    sibling: u32,
+    stack_mode: u32,
 }
 
 pub struct Connection {
@@ -114,10 +126,48 @@ impl Connection {
             .expect("Error receiving event");
         unsafe {
             match e.response_type() {
+                xcb::CONFIGURE_REQUEST => self.configure_request(xcb::cast_event(&e)),
                 xcb::MAP_REQUEST => self.map_request(xcb::cast_event(&e)),
+                xcb::UNMAP_NOTIFY => self.unmap_notify(xcb::cast_event(&e)),
+                xcb::KEY_PRESS => self.key_press(xcb::cast_event(&e)),
                 _ => None,
             }
         }
+    }
+
+    fn configure_request(&self, event: &xcb::ConfigureRequestEvent) -> Option<XEvent> {
+        Some(XEvent::ConfigureRequest(
+            Window(event.window()),
+            WindowChanges {
+                x: event.x() as u32,
+                y: event.y() as u32,
+                width: event.width() as u32,
+                height: event.height() as u32,
+                border_width: event.border_width() as u32,
+                sibling: event.sibling() as u32,
+                stack_mode: event.stack_mode() as u32,
+            },
+        ))
+    }
+
+    pub fn configure_window(&self, window: &Window, window_changes: &WindowChanges) {
+        let value_list = vec![
+            (xcb::CONFIG_WINDOW_X as u16, window_changes.x),
+            (xcb::CONFIG_WINDOW_Y as u16, window_changes.y),
+            (xcb::CONFIG_WINDOW_WIDTH as u16, window_changes.width),
+            (xcb::CONFIG_WINDOW_HEIGHT as u16, window_changes.height),
+            (
+                xcb::CONFIG_WINDOW_BORDER_WIDTH as u16,
+                window_changes.border_width,
+            ),
+            (xcb::CONFIG_WINDOW_SIBLING as u16, window_changes.sibling),
+            (
+                xcb::CONFIG_WINDOW_STACK_MODE as u16,
+                window_changes.stack_mode,
+            ),
+        ];
+
+        xcb::configure_window(&self.connection, window.as_xcb_window(), &value_list);
     }
 
     fn map_request(&self, event: &xcb::MapRequestEvent) -> Option<XEvent> {
@@ -126,6 +176,23 @@ impl Connection {
 
     pub fn map_window(&self, window: &Window) {
         xcb::map_window(&self.connection, window.as_xcb_window());
+    }
+
+    fn unmap_notify(&self, event: &xcb::UnmapNotifyEvent) -> Option<XEvent> {
+        Some(XEvent::UnmapNotify(Window(event.window())))
+    }
+
+    pub fn unmap_window(&self, window: &Window) {
+        xcb::unmap_window(&self.connection, window.as_xcb_window());
+    }
+
+    // TODO: Actually handle key events
+    fn key_press(&self, event: &xcb::KeyPressEvent) -> Option<XEvent> {
+        let key_symbols = keysyms::KeySymbols::new(&self.connection);
+        let key = key_symbols.press_lookup_keysym(event, 0);
+        let modifier = u32::from(event.state());
+        let key = Key { modifier, key };
+        Some(XEvent::KeyPress(key))
     }
 
     pub fn register_window(&self, window: &Window) {
@@ -138,10 +205,25 @@ impl Connection {
             .request_check()
             .expect("Could not register for substructure redirect/notify");
     }
+
+    pub fn grab_key(&self, key: Key, window: &Window) {
+        let key_symbols = keysyms::KeySymbols::new(&self.connection);
+
+        xcb::grab_key(
+            &self.connection,
+            false,
+            window.as_xcb_window(),
+            key.modifier as u16,
+            key_symbols.get_keycode(key.key).next().expect("Could not resolve keysym"),
+            xcb::GRAB_MODE_ASYNC as u8,
+            xcb::GRAB_MODE_ASYNC as u8,
+        );
+    }
 }
 
 pub enum XEvent {
+    ConfigureRequest(Window, WindowChanges),
     MapRequest(Window),
     UnmapNotify(Window),
-    KeyPress(Window),
+    KeyPress(Key),
 }

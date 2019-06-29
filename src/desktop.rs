@@ -8,7 +8,7 @@ pub struct Desktop {
     active: bool,
     layout: Layout,
     windows: Vec<x::Window>,
-    focused_window: usize,
+    focused_window: u32,
     connection: Rc<x::Connection>,
 }
 
@@ -18,7 +18,7 @@ impl Desktop {
         active: bool,
         layout: Layout,
         windows: Vec<x::Window>,
-        focused_window: usize,
+        focused_window: u32,
         connection: Rc<x::Connection>,
     ) -> Desktop {
         Desktop {
@@ -42,4 +42,8 @@ impl Desktop {
     }
 
     pub fn remove_window(&mut self, window: &x::Window) {}
+
+    pub fn layout(&self) -> Layout {
+        self.layout
+    }
 }

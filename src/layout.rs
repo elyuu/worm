@@ -1,5 +1,6 @@
 use crate::x;
 
+#[derive(Clone, Copy, Debug, PartialEq)]
 pub enum Layout {
     Float,
     Monocle,

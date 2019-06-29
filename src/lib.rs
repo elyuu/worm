@@ -1,6 +1,7 @@
 use std::rc::Rc;
 
 mod desktop;
+mod key;
 mod layout;
 mod x;
 
@@ -59,6 +60,7 @@ impl Worm {
             };
 
             match event {
+                x::XEvent::ConfigureRequest(w, wc) => self.configure_request(w, wc),
                 x::XEvent::MapRequest(w) => self.map_request(w),
                 _ => continue,
             };
@@ -80,6 +82,15 @@ impl Worm {
         for window in windows.iter() {
             self.manage(window.clone());
         }
+    }
+
+    fn configure_request(&mut self, window: x::Window, window_changes: x::WindowChanges) {
+        if self.desktops[self.active_desktop].layout() != Layout::Float {
+            return
+        }
+
+        // Don't change anything
+        self.connection.configure_window(&window, &window_changes);
     }
 
     fn map_request(&mut self, window: x::Window) {
