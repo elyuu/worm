@@ -1,4 +1,7 @@
 use crate::x;
+use crate::Screen;
+
+type Gap = u32;
 
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub enum Layout {
@@ -8,11 +11,11 @@ pub enum Layout {
 }
 
 impl Layout {
-    pub fn apply(&self, conn: &x::Connection, windows: &Vec<x::Window>) {
+    pub fn apply(&self, conn: &x::Connection, windows: &Vec<x::Window>, screen: &Screen) {
         match self {
             Layout::Float => Layout::float(conn, windows),
             Layout::Monocle => Layout::monocle(conn, windows),
-            Layout::Tile => Layout::tile(conn, windows),
+            Layout::Tile => Layout::tile(conn, windows, screen),
         };
     }
 
@@ -26,8 +29,66 @@ impl Layout {
         println!("Monocle");
     }
 
-    fn tile(conn: &x::Connection, windows: &Vec<x::Window>) {
-        println!("Tile");
+    fn tile(connection: &x::Connection, windows: &Vec<x::Window>, screen: &Screen) {
+        if windows.is_empty() {
+            return
+        }
+
+        // TODO: TEMP
+        let gap = 10;
+        let num_master = 1;
+        let master_fact = 0.5;
+
+        let num_windows = windows.len();
+        let mut g = 0;
+        let mut master_width = 0;
+
+        if num_windows > num_master {
+            master_width = if num_master > 0 {
+                g = gap;
+                ((screen.width - g) as f32 * master_fact) as u32
+            } else {
+                0
+            };
+        } else {
+            master_width = 0;
+        }
+
+        let mut my = 0;
+        let mut ty = 0;
+        let mut r = 0;
+        let mut h = 0;
+
+        for (i, window) in windows.iter().enumerate() {
+            if i < num_master {
+                r = (usize::min(num_windows, num_master) - i) as u32;
+                h = (screen.height - my - gap * (r - 1)) / r;
+                let window_changes = x::WindowChanges {
+                    x: screen.x,
+                    y: screen.y + my,
+                    width: master_width,
+                    height: h,
+                    border_width: 0,
+                    sibling: 0,
+                    stack_mode: 0,
+                };
+                connection.configure_window(&window, &window_changes);
+                my += h;
+            } else {
+                r = (num_windows - i) as u32;
+                h = (screen.height - ty - gap * (r - 1)) / r;
+                let window_changes = x::WindowChanges {
+                    x: screen.x + master_width + g,
+                    y: screen.y + ty,
+                    width: screen.width - master_width - g,
+                    height: h,
+                    border_width: 0,
+                    sibling: 0,
+                    stack_mode: 0,
+                };
+                connection.configure_window(&window, &window_changes);
+                ty += h + gap;
+            }
+        }
     }
 }
-

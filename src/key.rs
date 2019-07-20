@@ -1,9 +1,12 @@
+use std::collections::HashMap;
 use std::os::raw::c_uint;
+
+use crate::command::Command;
 
 use xcb;
 
-type KeySymbol = c_uint;
-type ModMask = c_uint;
+pub type KeySymbol = c_uint;
+pub type ModMask = c_uint;
 
 pub enum Modifier {
     Shift,
@@ -31,6 +34,7 @@ impl Modifier {
     }
 }
 
+#[derive(Eq, Hash, PartialEq)]
 pub struct Key {
     pub modifier: ModMask,
     pub key: KeySymbol,
@@ -43,4 +47,8 @@ impl Key {
             key: key,
         }
     }
+}
+
+pub struct KeyMap {
+    pub key_map: HashMap<Key, Command>,
 }

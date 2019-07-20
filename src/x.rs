@@ -1,7 +1,7 @@
 use xcb;
-use xcb_util::{ewmh, icccm, keysyms};
+use xcb_util::{ewmh, keysyms};
 
-use crate::key::Key;
+use crate::key::*;
 
 #[derive(Debug)]
 #[allow(non_snake_case)]
@@ -29,23 +29,41 @@ impl InternedAtoms {
 }
 
 /// Wrapping xcb::Window to not leak dependency
-#[derive(Clone, Debug, PartialEq)]
-pub struct Window(xcb::Window);
+#[derive(Clone, Copy, Debug, PartialEq)]
+//pub struct Window(xcb::Window);
+pub struct Window {
+    pub window: xcb::Window,
+    pub x: u32,
+    pub y: u32,
+    pub width: u32,
+    pub height: u32,
+}
 
 impl Window {
+    pub fn new(connection: &Connection, window: xcb::Window) -> Window {
+        let geo = connection.get_window_geometry(window);
+        Window {
+            window: window,
+            x: geo.0,
+            y: geo.1,
+            width: geo.2,
+            height: geo.3,
+        }
+    }
+
     pub fn as_xcb_window(&self) -> xcb::Window {
-        self.0
+        self.window
     }
 }
 
 pub struct WindowChanges {
-    x: u32,
-    y: u32,
-    width: u32,
-    height: u32,
-    border_width: u32,
-    sibling: u32,
-    stack_mode: u32,
+    pub x: u32,
+    pub y: u32,
+    pub width: u32,
+    pub height: u32,
+    pub border_width: u32,
+    pub sibling: u32,
+    pub stack_mode: u32,
 }
 
 pub struct Connection {
@@ -70,7 +88,18 @@ impl Connection {
             .nth(root_idx as usize)
             .expect("Could not get root window")
             .root();
-        let root_window = Window(root_window);
+
+        let geo = xcb::get_geometry(&connection, root_window)
+            .get_reply()
+            .expect("Could not get window geometry");
+
+        let root_window = Window {
+            window: root_window,
+            x: geo.x() as u32,
+            y: geo.y() as u32,
+            width: geo.width() as u32,
+            height: geo.height() as u32,
+        };
 
         let atoms = InternedAtoms::new(&connection);
 
@@ -81,7 +110,7 @@ impl Connection {
         }
     }
 
-    pub fn setup(&self) {
+    pub fn setup(&self, keys: &KeyMap) {
         // register for substructure redirect/notify
         let values = [(
             xcb::CW_EVENT_MASK,
@@ -95,6 +124,8 @@ impl Connection {
         )
         .request_check()
         .expect("Could not register for substructure redirect/notify");
+
+        self.grab_keys(&self.root_window, keys);
     }
 
     pub fn get_existing_windows(&self) -> Vec<Window> {
@@ -107,12 +138,16 @@ impl Connection {
                 .expect("Could not query existing windows")
                 .children()
                 .iter()
-                .map(|w| Window(*w))
+                .map(|w| Window::new(&self, *w))
                 .collect();
 
         xcb::ungrab_server(&self.connection);
 
         existing_windows
+    }
+
+    pub fn root_window(&self) -> Window {
+        Window::new(&self, self.root_window.as_xcb_window())
     }
 
     pub fn flush(&self) {
@@ -137,7 +172,7 @@ impl Connection {
 
     fn configure_request(&self, event: &xcb::ConfigureRequestEvent) -> Option<XEvent> {
         Some(XEvent::ConfigureRequest(
-            Window(event.window()),
+            Window::new(&self, event.window()),
             WindowChanges {
                 x: event.x() as u32,
                 y: event.y() as u32,
@@ -171,7 +206,7 @@ impl Connection {
     }
 
     fn map_request(&self, event: &xcb::MapRequestEvent) -> Option<XEvent> {
-        Some(XEvent::MapRequest(Window(event.window())))
+        Some(XEvent::MapRequest(Window::new(&self, event.window())))
     }
 
     pub fn map_window(&self, window: &Window) {
@@ -179,20 +214,37 @@ impl Connection {
     }
 
     fn unmap_notify(&self, event: &xcb::UnmapNotifyEvent) -> Option<XEvent> {
-        Some(XEvent::UnmapNotify(Window(event.window())))
+        Some(XEvent::UnmapNotify(Window::new(&self, event.window())))
     }
 
     pub fn unmap_window(&self, window: &Window) {
         xcb::unmap_window(&self.connection, window.as_xcb_window());
     }
 
-    // TODO: Actually handle key events
     fn key_press(&self, event: &xcb::KeyPressEvent) -> Option<XEvent> {
         let key_symbols = keysyms::KeySymbols::new(&self.connection);
         let key = key_symbols.press_lookup_keysym(event, 0);
         let modifier = u32::from(event.state());
         let key = Key { modifier, key };
         Some(XEvent::KeyPress(key))
+    }
+
+    pub fn grab_keys(&self, window: &Window, keys: &KeyMap) {
+        let key_symbols = keysyms::KeySymbols::new(&self.connection);
+        for key in keys.key_map.keys() {
+            xcb::grab_key(
+                &self.connection,
+                false,
+                window.as_xcb_window(),
+                key.modifier as u16,
+                key_symbols
+                    .get_keycode(key.key)
+                    .next()
+                    .expect("Could not resolve keysym"),
+                xcb::GRAB_MODE_ASYNC as u8,
+                xcb::GRAB_MODE_ASYNC as u8,
+            );
+        }
     }
 
     pub fn register_window(&self, window: &Window) {
@@ -206,18 +258,23 @@ impl Connection {
             .expect("Could not register for substructure redirect/notify");
     }
 
-    pub fn grab_key(&self, key: Key, window: &Window) {
-        let key_symbols = keysyms::KeySymbols::new(&self.connection);
+    pub fn register_window_test(&self, window: &Window) {
+        let values = [(
+            xcb::CW_EVENT_MASK,
+            xcb::EVENT_MASK_ENTER_WINDOW | xcb::EVENT_MASK_STRUCTURE_NOTIFY,
+        )];
 
-        xcb::grab_key(
-            &self.connection,
-            false,
-            window.as_xcb_window(),
-            key.modifier as u16,
-            key_symbols.get_keycode(key.key).next().expect("Could not resolve keysym"),
-            xcb::GRAB_MODE_ASYNC as u8,
-            xcb::GRAB_MODE_ASYNC as u8,
-        );
+        xcb::change_window_attributes_checked(&self.connection, window.as_xcb_window(), &values)
+            .request_check()
+            .expect("Could not register for substructure redirect/notify");
+    }
+
+    /// function to find xcb::idow geometry as (x, y, width, height)
+    pub fn get_window_geometry(&self, window: xcb::Window) -> (u32, u32, u32, u32) {
+        let geo = xcb::get_geometry(&self.connection, window)
+            .get_reply()
+            .expect("Could not get window geometry");
+        (geo.x() as u32, geo.y() as u32, geo.width() as u32, geo.height() as u32)
     }
 }
 
