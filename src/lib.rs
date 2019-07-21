@@ -6,8 +6,7 @@ pub mod key;
 pub mod layout;
 mod x;
 
-use command::Command;
-use desktop::Desktop;
+use desktop::*;
 use key::*;
 use layout::Layout;
 
@@ -36,8 +35,7 @@ pub struct Screen {
 
 pub struct Worm {
     connection: Rc<x::Connection>,
-    desktops: Vec<Desktop>,
-    active_desktop: usize,
+    desktops: Desktops,
     binds: KeyMap,
     screen: Screen,
 }
@@ -73,16 +71,17 @@ impl Worm {
             ))
         }
 
+        let mut desktops = Desktops::new(desktops, 0);
+
         let mut wm = Worm {
             connection: connection.clone(),
             desktops,
-            active_desktop: 0,
             binds,
             screen,
         };
 
+        // Manage existing windows and add them to 1sr desktop
         let windows = connection.get_existing_windows();
-
         for window in windows.iter() {
             wm.manage(window.clone());
         }
@@ -116,7 +115,7 @@ impl Worm {
         self.connection.grab_keys(&window, &self.binds);
         self.connection.register_window(&window);
         self.connection.track_window_events(&window);
-        self.desktops[self.active_desktop].add_window(window);
+        self.desktops.add_window(window);
     }
 
     fn manage_existing(&mut self) {
@@ -147,7 +146,11 @@ impl Worm {
     }
 
     fn is_managed(&self, window: &x::Window) -> bool {
-        self.desktops.iter().any(|d| d.contains(window))
+        self.desktops.contains(window)
+    }
+
+    fn focus_desktop(&mut self, desktop: usize) {
+        // TODO: Fill in
     }
 }
 

@@ -27,6 +27,6 @@ impl Command {
     }
 
     fn change_layout(wm: &mut Worm, layout: &Layout) {
-        wm.desktops[wm.active_desktop].change_layout(layout);
+        wm.desktops.change_layout(layout);
     }
 }
