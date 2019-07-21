@@ -41,8 +41,8 @@ impl Desktop {
     }
 
     pub fn add_window(&mut self, window: x::Window) {
-        self.connection.map_window(&window);
         self.windows.push(window);
+        self.apply_layout();
     }
 
     pub fn remove_window(&mut self, window: &x::Window) {}
@@ -56,7 +56,18 @@ impl Desktop {
             return;
         }
         self.layout = layout.clone();
+        self.apply_layout();
+    }
+
+    pub fn apply_layout(&mut self) {
+        /* TODO: Set and check for active desktops everywhere
+        if !self.active {
+            return
+        }
+        */
         self.layout.apply(&self.connection, &self.windows, &self.screen);
+
+        // TODO: Set focus on a window maybe
     }
 
     pub fn focus_window(&mut self) {}

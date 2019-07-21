@@ -30,7 +30,6 @@ impl InternedAtoms {
 
 /// Wrapping xcb::Window to not leak dependency
 #[derive(Clone, Copy, Debug, PartialEq)]
-//pub struct Window(xcb::Window);
 pub struct Window {
     pub window: xcb::Window,
     pub x: u32,
@@ -56,6 +55,8 @@ impl Window {
     }
 }
 
+// TODO: Check if last 3 will ever be needed
+#[derive(Debug, Default)]
 pub struct WindowChanges {
     pub x: u32,
     pub y: u32,
@@ -89,16 +90,16 @@ impl Connection {
             .expect("Could not get root window")
             .root();
 
-        let geo = xcb::get_geometry(&connection, root_window)
+        let root_geo = xcb::get_geometry(&connection, root_window)
             .get_reply()
             .expect("Could not get window geometry");
 
         let root_window = Window {
             window: root_window,
-            x: geo.x() as u32,
-            y: geo.y() as u32,
-            width: geo.width() as u32,
-            height: geo.height() as u32,
+            x: root_geo.x() as u32,
+            y: root_geo.y() as u32,
+            width: root_geo.width() as u32,
+            height: root_geo.height() as u32,
         };
 
         let atoms = InternedAtoms::new(&connection);
@@ -191,15 +192,6 @@ impl Connection {
             (xcb::CONFIG_WINDOW_Y as u16, window_changes.y),
             (xcb::CONFIG_WINDOW_WIDTH as u16, window_changes.width),
             (xcb::CONFIG_WINDOW_HEIGHT as u16, window_changes.height),
-            (
-                xcb::CONFIG_WINDOW_BORDER_WIDTH as u16,
-                window_changes.border_width,
-            ),
-            (xcb::CONFIG_WINDOW_SIBLING as u16, window_changes.sibling),
-            (
-                xcb::CONFIG_WINDOW_STACK_MODE as u16,
-                window_changes.stack_mode,
-            ),
         ];
 
         xcb::configure_window(&self.connection, window.as_xcb_window(), &value_list);
@@ -258,7 +250,7 @@ impl Connection {
             .expect("Could not register for substructure redirect/notify");
     }
 
-    pub fn register_window_test(&self, window: &Window) {
+    pub fn track_window_events(&self, window: &Window) {
         let values = [(
             xcb::CW_EVENT_MASK,
             xcb::EVENT_MASK_ENTER_WINDOW | xcb::EVENT_MASK_STRUCTURE_NOTIFY,
@@ -266,7 +258,14 @@ impl Connection {
 
         xcb::change_window_attributes_checked(&self.connection, window.as_xcb_window(), &values)
             .request_check()
-            .expect("Could not register for substructure redirect/notify");
+            .expect("Could not track window events");
+    }
+
+    pub fn stop_window_events(&self, window: &Window) {
+        let values = [(xcb::CW_EVENT_MASK, xcb::EVENT_MASK_NO_EVENT)];
+        xcb::change_window_attributes_checked(&self.connection, window.as_xcb_window(), &values)
+            .request_check()
+            .expect("Could not stop window events");
     }
 
     /// function to find xcb::idow geometry as (x, y, width, height)

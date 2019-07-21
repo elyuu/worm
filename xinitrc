@@ -1,5 +1,5 @@
 xeyes &
 xclock &
-sleep 2 && xterm &
+sleep 2 && urxvt &
 
 exec target/debug/worm

@@ -114,8 +114,8 @@ impl Worm {
         }
 
         self.connection.grab_keys(&window, &self.binds);
-        //self.connection.register_window(&window);
-        self.connection.register_window_test(&window);
+        self.connection.register_window(&window);
+        self.connection.track_window_events(&window);
         self.desktops[self.active_desktop].add_window(window);
     }
 
@@ -128,10 +128,11 @@ impl Worm {
     }
 
     fn configure_request(&mut self, window: x::Window, window_changes: x::WindowChanges) {
+        /*
         if self.desktops[self.active_desktop].layout() != Layout::Float {
             return;
         }
-
+        */
         // Don't change anything
         self.connection.configure_window(&window, &window_changes);
     }

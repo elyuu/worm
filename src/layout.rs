@@ -29,6 +29,7 @@ impl Layout {
         println!("Monocle");
     }
 
+    // TODO: Cleanup
     fn tile(connection: &x::Connection, windows: &Vec<x::Window>, screen: &Screen) {
         if windows.is_empty() {
             return
@@ -60,10 +61,11 @@ impl Layout {
         let mut h = 0;
 
         for (i, window) in windows.iter().enumerate() {
+            let mut window_changes = x::WindowChanges::default();
             if i < num_master {
                 r = (usize::min(num_windows, num_master) - i) as u32;
                 h = (screen.height - my - gap * (r - 1)) / r;
-                let window_changes = x::WindowChanges {
+                window_changes = x::WindowChanges {
                     x: screen.x,
                     y: screen.y + my,
                     width: master_width,
@@ -72,12 +74,11 @@ impl Layout {
                     sibling: 0,
                     stack_mode: 0,
                 };
-                connection.configure_window(&window, &window_changes);
                 my += h;
             } else {
                 r = (num_windows - i) as u32;
                 h = (screen.height - ty - gap * (r - 1)) / r;
-                let window_changes = x::WindowChanges {
+                window_changes = x::WindowChanges {
                     x: screen.x + master_width + g,
                     y: screen.y + ty,
                     width: screen.width - master_width - g,
@@ -86,9 +87,12 @@ impl Layout {
                     sibling: 0,
                     stack_mode: 0,
                 };
-                connection.configure_window(&window, &window_changes);
                 ty += h + gap;
             }
+            connection.stop_window_events(&window);
+            connection.map_window(&window);
+            connection.configure_window(&window, &window_changes);
+            connection.track_window_events(&window);
         }
     }
 }
