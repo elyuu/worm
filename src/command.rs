@@ -22,11 +22,16 @@ impl Command {
     pub fn command(&self, wm: &mut Worm) {
         match self {
             Command::ChangeLayout(l) => Command::change_layout(wm, l),
+            Command::FocusDirection(d) => Command::focus_direction(wm, d),
             _ => return,
         };
     }
 
     fn change_layout(wm: &mut Worm, layout: &Layout) {
         wm.desktops.change_layout(layout);
+    }
+
+    fn focus_direction(wm: &mut Worm, direction: &Direction) {
+        wm.desktops.focus_window(direction);
     }
 }

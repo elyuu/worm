@@ -25,6 +25,7 @@ macro_rules! bindings {
 
 // TODO: Might needo some other screen specific things
 // i.e. info about bars and stuff
+/// struct that represents the usable portion of the screen
 #[derive(Clone, Debug)]
 pub struct Screen {
     width: u32,
@@ -48,7 +49,7 @@ impl Worm {
 
         let existing_windows: Vec<x::Window> = Vec::new();
 
-        // TODO: Change this to account for actual screen size, maybe get rid of Screen 
+        // TODO: Change this to account for actual screen size, maybe get rid of Screen
         // struct and just use x::Window
         let root_window = connection.root_window();
         let screen = Screen {
@@ -67,11 +68,11 @@ impl Worm {
                 existing_windows.clone(),
                 0,
                 connection.clone(),
-                &screen
+                &screen,
             ))
         }
 
-        let mut desktops = Desktops::new(desktops, 0);
+        let desktops = Desktops::new(desktops, 0);
 
         let mut wm = Worm {
             connection: connection.clone(),

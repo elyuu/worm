@@ -32,7 +32,7 @@ impl Layout {
     // TODO: Cleanup
     fn tile(connection: &x::Connection, windows: &Vec<x::Window>, screen: &Screen) {
         if windows.is_empty() {
-            return
+            return;
         }
 
         // TODO: TEMP

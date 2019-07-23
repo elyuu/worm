@@ -70,13 +70,14 @@ pub struct WindowChanges {
 pub struct Connection {
     connection: ewmh::Connection,
     root_window: Window,
+    root_id: i32,
     atoms: InternedAtoms,
 }
 
 impl Connection {
     pub fn new() -> Connection {
         // Connect to the default display
-        let (connection, root_idx) =
+        let (connection, root_id) =
             xcb::Connection::connect(None).expect("Could not connect to the display");
         let connection = ewmh::Connection::connect(connection)
             .map_err(|(e, _)| e)
@@ -86,7 +87,7 @@ impl Connection {
         let root_window = connection
             .get_setup()
             .roots()
-            .nth(root_idx as usize)
+            .nth(root_id as usize)
             .expect("Could not get root window")
             .root();
 
@@ -107,6 +108,7 @@ impl Connection {
         Connection {
             connection,
             root_window,
+            root_id,
             atoms,
         }
     }
@@ -268,12 +270,32 @@ impl Connection {
             .expect("Could not stop window events");
     }
 
+    pub fn focus_window(&self, window: Window) {
+        xcb::set_input_focus_checked(
+            &self.connection,
+            xcb::INPUT_FOCUS_POINTER_ROOT as u8,
+            window.as_xcb_window(),
+            xcb::CURRENT_TIME,
+        )
+        .request_check()
+        .expect("Could not set input focus to focus window");
+
+        ewmh::set_active_window_checked(&self.connection, self.root_id, window.as_xcb_window())
+            .request_check()
+            .expect("Could not set ewmh focus");
+    }
+
     /// function to find xcb::idow geometry as (x, y, width, height)
     pub fn get_window_geometry(&self, window: xcb::Window) -> (u32, u32, u32, u32) {
         let geo = xcb::get_geometry(&self.connection, window)
             .get_reply()
             .expect("Could not get window geometry");
-        (geo.x() as u32, geo.y() as u32, geo.width() as u32, geo.height() as u32)
+        (
+            geo.x() as u32,
+            geo.y() as u32,
+            geo.width() as u32,
+            geo.height() as u32,
+        )
     }
 }
 
