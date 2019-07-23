@@ -53,6 +53,14 @@ impl Desktops {
 
     // TODO: Cleanup is needed
     pub fn focus_window(&mut self, direction: &Direction) {
+        match self.layout() {
+            Layout::Tile => self.focus_window_tile(direction),
+            Layout::Monocle => self.focus_window_monocle(direction),
+            _ => {}
+        }
+    }
+
+    fn focus_window_tile(&mut self, direction: &Direction) {
         match direction {
             Direction::Up => {
                 // TODO: This would need to be compared to num_master global
@@ -105,14 +113,33 @@ impl Desktops {
                 self.desktops[self.focused_desktop].focused_window =
                     self.desktops[self.focused_desktop].focused_last;
                 self.desktops[self.focused_desktop].focused_last = 0;
-                self.desktops[self.focused_desktop].update_focus();
+                self.update_focus();
             }
         }
     }
 
+    fn focus_window_monocle(&mut self, direction: &Direction) {
+        // Treat both up/down as cylcle backward/forward
+        match direction {
+            // Forward cycle
+            Direction::Down | Direction::Right => {
+                self.desktops[self.focused_desktop].cycle_window_forward();
+                self.update_focus();
+            }
+            Direction::Up | Direction::Left => {
+                self.desktops[self.focused_desktop].cycle_window_backward();
+                self.update_focus();
+            }
+        }
+    }
+
+    fn update_focus(&self) {
+        self.desktops[self.focused_desktop].update_focus();
+    }
+
     // TODO: Probably propogate the Option
     fn get_focused_window(&self) -> x::Window {
-        self.desktops[self.focused_desktop].get_active_window()
+        self.desktops[self.focused_desktop].get_focused_window()
     }
 }
 
@@ -173,11 +200,45 @@ impl Desktop {
         // TODO: Set focus on a window maybe
     }
 
-    fn update_focus(&mut self) {
-        self.connection.focus_window(self.get_active_window());
+    fn update_focus(&self) {
+        self.connection.focus_window(self.get_focused_window());
     }
 
-    fn get_active_window(&self) -> x::Window {
+    fn cycle_window_forward(&mut self) {
+        if self.layout() != Layout::Monocle {
+            panic!("Trying to cylce on non monocle layout");
+        }
+        if self.focused_window == self.windows.len() - 1 {
+            self.connection.unmap_window(&self.get_focused_window());
+            self.focused_last = self.focused_window;
+            self.focused_window = 0;
+            self.connection.map_window(&self.get_focused_window());
+        } else {
+            self.connection.unmap_window(&self.get_focused_window());
+            self.focused_last = self.focused_window;
+            self.focused_window += 1;
+            self.connection.map_window(&self.get_focused_window());
+        }
+    }
+
+    fn cycle_window_backward(&mut self) {
+        if self.layout() != Layout::Monocle {
+            panic!("Trying to cylce on non monocle layout");
+        }
+        if self.focused_window == 0 {
+            self.connection.unmap_window(&self.get_focused_window());
+            self.focused_last = 0;
+            self.focused_window = self.windows.len() - 1;
+            self.connection.map_window(&self.get_focused_window());
+        } else {
+            self.connection.unmap_window(&self.get_focused_window());
+            self.focused_last = self.focused_window;
+            self.focused_window -= 1;
+            self.connection.map_window(&self.get_focused_window());
+        }
+    }
+
+    fn get_focused_window(&self) -> x::Window {
         self.windows[self.focused_window]
     }
 }

@@ -14,19 +14,44 @@ impl Layout {
     pub fn apply(&self, conn: &x::Connection, windows: &Vec<x::Window>, screen: &Screen) {
         match self {
             Layout::Float => Layout::float(conn, windows),
-            Layout::Monocle => Layout::monocle(conn, windows),
+            Layout::Monocle => Layout::monocle(conn, windows, screen),
             Layout::Tile => Layout::tile(conn, windows, screen),
         };
     }
 
-    fn float(conn: &x::Connection, windows: &Vec<x::Window>) {
-        for window in windows.iter() {
-            conn.map_window(window);
+    fn float(connection: &x::Connection, windows: &Vec<x::Window>) {
+        if windows.is_empty() {
+            return;
+        }
+
+        for window in windows {
+            connection.stop_window_events(&window);
+            connection.map_window(&window);
+            connection.track_window_events(&window);
         }
     }
 
-    fn monocle(conn: &x::Connection, windows: &Vec<x::Window>) {
-        println!("Monocle");
+    fn monocle(connection: &x::Connection, windows: &Vec<x::Window>, screen: &Screen) {
+        if windows.is_empty() {
+            return;
+        }
+
+        let window_changes = x::WindowChanges {
+            x: screen.x,
+            y: screen.y,
+            width: screen.width,
+            height: screen.height,
+            border_width: 0,
+            sibling: 0,
+            stack_mode: 0,
+        };
+
+        for window in windows {
+            connection.stop_window_events(&window);
+            connection.map_window(&window);
+            connection.configure_window(&window, &window_changes);
+            connection.track_window_events(&window);
+        }
     }
 
     // TODO: Cleanup

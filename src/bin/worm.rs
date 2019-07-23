@@ -13,6 +13,7 @@ fn main() {
     let binds = bindings!(
         (Modifier::Mod1, XK_t, Command::ChangeLayout(Layout::Tile)),
         (Modifier::Mod1, XK_s, Command::ChangeLayout(Layout::Float)),
+        (Modifier::Mod1, XK_m, Command::ChangeLayout(Layout::Monocle)),
         (Modifier::Mod1, XK_h, Command::FocusDirection(Direction::Left)),
         (Modifier::Mod1, XK_j, Command::FocusDirection(Direction::Down)),
         (Modifier::Mod1, XK_k, Command::FocusDirection(Direction::Up)),
