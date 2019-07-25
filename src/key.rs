@@ -34,7 +34,7 @@ impl Modifier {
     }
 }
 
-#[derive(Eq, Hash, PartialEq)]
+#[derive(Debug, Eq, Hash, PartialEq)]
 pub struct Key {
     pub modifier: ModMask,
     pub key: KeySymbol,

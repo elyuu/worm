@@ -1,3 +1,4 @@
+xrdb -load $HOME/.Xresources &
 xeyes &
 xclock &
 sleep 2 && urxvt &

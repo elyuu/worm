@@ -1,5 +1,5 @@
 use xcb;
-use xcb_util::{ewmh, keysyms};
+use xcb_util::{ewmh, icccm, keysyms};
 
 use crate::key::*;
 
@@ -67,17 +67,26 @@ pub struct WindowChanges {
     pub stack_mode: u32,
 }
 
+#[derive(Debug)]
+pub enum XEvent {
+    ConfigureRequest(Window, WindowChanges),
+    MapRequest(Window),
+    UnmapNotify(Window),
+    DestroyNotify(Window),
+    KeyPress(Key),
+}
+
 pub struct Connection {
     connection: ewmh::Connection,
     root_window: Window,
-    root_id: i32,
+    root_index: i32,
     atoms: InternedAtoms,
 }
 
 impl Connection {
     pub fn new() -> Connection {
         // Connect to the default display
-        let (connection, root_id) =
+        let (connection, root_index) =
             xcb::Connection::connect(None).expect("Could not connect to the display");
         let connection = ewmh::Connection::connect(connection)
             .map_err(|(e, _)| e)
@@ -87,7 +96,7 @@ impl Connection {
         let root_window = connection
             .get_setup()
             .roots()
-            .nth(root_id as usize)
+            .nth(root_index as usize)
             .expect("Could not get root window")
             .root();
 
@@ -108,7 +117,7 @@ impl Connection {
         Connection {
             connection,
             root_window,
-            root_id,
+            root_index,
             atoms,
         }
     }
@@ -168,6 +177,7 @@ impl Connection {
                 xcb::MAP_REQUEST => self.map_request(xcb::cast_event(&e)),
                 xcb::UNMAP_NOTIFY => self.unmap_notify(xcb::cast_event(&e)),
                 xcb::KEY_PRESS => self.key_press(xcb::cast_event(&e)),
+                xcb::DESTROY_NOTIFY => self.destroy_notify(xcb::cast_event(&e)),
                 _ => None,
             }
         }
@@ -208,7 +218,12 @@ impl Connection {
     }
 
     fn unmap_notify(&self, event: &xcb::UnmapNotifyEvent) -> Option<XEvent> {
-        Some(XEvent::UnmapNotify(Window::new(&self, event.window())))
+        println!("UNMAP NOTIFY FOR WINDOW: {:?}", event.window());
+        if event.event() == self.root_window.as_xcb_window() {
+            None
+        } else {
+            Some(XEvent::UnmapNotify(Window::new(&self, event.window())))
+        }
     }
 
     pub fn unmap_window(&self, window: &Window) {
@@ -221,6 +236,10 @@ impl Connection {
         let modifier = u32::from(event.state());
         let key = Key { modifier, key };
         Some(XEvent::KeyPress(key))
+    }
+
+    fn destroy_notify(&self, event: &xcb::DestroyNotifyEvent) -> Option<XEvent> {
+        Some(XEvent::DestroyNotify(Window::new(&self, event.window())))
     }
 
     pub fn grab_keys(&self, window: &Window, keys: &KeyMap) {
@@ -280,9 +299,50 @@ impl Connection {
         .request_check()
         .expect("Could not set input focus to focus window");
 
-        ewmh::set_active_window_checked(&self.connection, self.root_id, window.as_xcb_window())
+        ewmh::set_active_window_checked(&self.connection, self.root_index, window.as_xcb_window())
             .request_check()
             .expect("Could not set ewmh focus");
+    }
+
+    pub fn delete_window(&self, window: &Window) {
+        if self
+            .get_wm_protocols(window)
+            .contains(&self.atoms.WM_DELETE_WINDOW)
+        {
+            let data = xcb::ClientMessageData::from_data32([
+                self.atoms.WM_DELETE_WINDOW,
+                xcb::CURRENT_TIME,
+                0,
+                0,
+                0,
+            ]);
+            let event = xcb::ClientMessageEvent::new(
+                32,
+                window.as_xcb_window(),
+                self.atoms.WM_PROTOCOLS,
+                data,
+            );
+            xcb::send_event(
+                &self.connection,
+                false,
+                window.as_xcb_window(),
+                xcb::EVENT_MASK_NO_EVENT,
+                &event,
+            );
+        } else {
+            xcb::destroy_window(&self.connection, window.as_xcb_window());
+        }
+    }
+
+    fn get_wm_protocols(&self, window: &Window) -> Vec<xcb::Atom> {
+        let protocols = icccm::get_wm_protocols(
+            &self.connection,
+            window.as_xcb_window(),
+            self.atoms.WM_PROTOCOLS,
+        )
+        .get_reply()
+        .expect("Could not get wm protocols");
+        Vec::from(protocols.atoms())
     }
 
     /// function to find xcb::idow geometry as (x, y, width, height)
@@ -297,11 +357,4 @@ impl Connection {
             geo.height() as u32,
         )
     }
-}
-
-pub enum XEvent {
-    ConfigureRequest(Window, WindowChanges),
-    MapRequest(Window),
-    UnmapNotify(Window),
-    KeyPress(Key),
 }

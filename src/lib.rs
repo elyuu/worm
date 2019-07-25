@@ -84,7 +84,7 @@ impl Worm {
         // Manage existing windows and add them to 1sr desktop
         let windows = connection.get_existing_windows();
         for window in windows.iter() {
-            wm.manage(window.clone());
+            wm.manage(window);
         }
 
         wm
@@ -99,40 +99,48 @@ impl Worm {
                 None => continue,
             };
 
+            println!("EVENT: {:?}", event);
+
             match event {
                 x::XEvent::ConfigureRequest(w, wc) => self.configure_request(w, wc),
                 x::XEvent::KeyPress(k) => self.key_press_event(k),
-                x::XEvent::MapRequest(w) => self.map_request(w),
-                _ => continue,
+                x::XEvent::MapRequest(w) => self.map_request(&w),
+                x::XEvent::UnmapNotify(w) => self.unmap_notify(&w),
+                x::XEvent::DestroyNotify(w) => self.destroy_notify(&w),
             };
         }
     }
 
-    fn manage(&mut self, window: x::Window) {
+    fn manage(&mut self, window: &x::Window) {
         if self.is_managed(&window) {
             panic!("Already managed window attempting to be managed again");
         }
 
-        self.connection.grab_keys(&window, &self.binds);
-        self.connection.register_window(&window);
-        self.connection.track_window_events(&window);
-        self.desktops.add_window(window);
+        self.connection.grab_keys(window, &self.binds);
+        self.connection.register_window(window);
+        self.connection.track_window_events(window);
+        self.desktops.add_window(window.clone());
+    }
+
+    fn unmanage(&mut self, window: &x::Window) {
+        if !self.desktops.contains(window) {
+            return;
+        }
+
+        self.connection.stop_window_events(window);
+        self.connection.unmap_window(window);
+        self.desktops.remove_window(window);
     }
 
     fn manage_existing(&mut self) {
         let windows = self.connection.get_existing_windows();
 
         for window in windows.iter() {
-            self.manage(window.clone());
+            self.manage(window);
         }
     }
 
-    fn configure_request(&mut self, window: x::Window, window_changes: x::WindowChanges) {
-        /*
-        if self.desktops[self.active_desktop].layout() != Layout::Float {
-            return;
-        }
-        */
+    fn configure_request(&self, window: x::Window, window_changes: x::WindowChanges) {
         // Don't change anything
         self.connection.configure_window(&window, &window_changes);
     }
@@ -142,16 +150,20 @@ impl Worm {
         cmd.command(self);
     }
 
-    fn map_request(&mut self, window: x::Window) {
+    fn map_request(&mut self, window: &x::Window) {
         self.manage(window);
+    }
+
+    fn unmap_notify(&mut self, window: &x::Window) {
+        self.unmanage(window);
+    }
+
+    fn destroy_notify(&mut self, window: &x::Window) {
+        self.unmanage(window);
     }
 
     fn is_managed(&self, window: &x::Window) -> bool {
         self.desktops.contains(window)
-    }
-
-    fn focus_desktop(&mut self, desktop: usize) {
-        // TODO: Fill in
     }
 }
 

@@ -37,7 +37,9 @@ impl Desktops {
         self.desktops[self.focused_desktop].add_window(window);
     }
 
-    pub fn remove_window(&mut self, window: &x::Window) {}
+    pub fn remove_window(&mut self, window: &x::Window) {
+        self.desktops[self.focused_desktop].remove_window(window);
+    }
 
     pub fn layout(&self) -> Layout {
         self.desktops[self.focused_desktop].layout()
@@ -121,7 +123,6 @@ impl Desktops {
     fn focus_window_monocle(&mut self, direction: &Direction) {
         // Treat both up/down as cylcle backward/forward
         match direction {
-            // Forward cycle
             Direction::Down | Direction::Right => {
                 self.desktops[self.focused_desktop].cycle_window_forward();
                 self.update_focus();
@@ -140,6 +141,11 @@ impl Desktops {
     // TODO: Probably propogate the Option
     fn get_focused_window(&self) -> x::Window {
         self.desktops[self.focused_desktop].get_focused_window()
+    }
+
+    pub fn delete_focused_window(&mut self) {
+        self.desktops[self.focused_desktop].delete_focused_window();
+        self.update_focus();
     }
 }
 
@@ -174,7 +180,12 @@ impl Desktop {
         self.apply_layout();
     }
 
-    fn remove_window(&mut self, window: &x::Window) {}
+    fn remove_window(&mut self, window: &x::Window) {
+        self.windows.remove(
+            self.get_window_idx(window)
+                .expect("Trying to remove a non managed window"),
+        );
+    }
 
     fn layout(&self) -> Layout {
         self.layout
@@ -240,5 +251,25 @@ impl Desktop {
 
     fn get_focused_window(&self) -> x::Window {
         self.windows[self.focused_window]
+    }
+
+    fn get_window_idx(&self, window: &x::Window) -> Option<usize> {
+        for (i, win) in self.windows.iter().enumerate() {
+            if win.as_xcb_window() == window.as_xcb_window() {
+                return Some(i);
+            }
+        }
+        None
+    }
+
+    fn delete_focused_window(&mut self) {
+        println!("WINDOW BEING DELETED: {:?}", self.get_focused_window().as_xcb_window());
+        self.connection.delete_window(&self.get_focused_window());
+        self.remove_window(&self.get_focused_window());
+        self.focused_window = self.focused_last;
+
+        // TODO: Maybe not this
+        self.focused_last = 0;
+        self.apply_layout();
     }
 }

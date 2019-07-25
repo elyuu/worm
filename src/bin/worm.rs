@@ -17,7 +17,8 @@ fn main() {
         (Modifier::Mod1, XK_h, Command::FocusDirection(Direction::Left)),
         (Modifier::Mod1, XK_j, Command::FocusDirection(Direction::Down)),
         (Modifier::Mod1, XK_k, Command::FocusDirection(Direction::Up)),
-        (Modifier::Mod1, XK_l, Command::FocusDirection(Direction::Right))
+        (Modifier::Mod1, XK_l, Command::FocusDirection(Direction::Right)),
+        (Modifier::Mod1, XK_w, Command::KillFocused)
     );
 
     let mut wm = Worm::new(binds);

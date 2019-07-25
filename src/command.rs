@@ -15,7 +15,8 @@ pub enum Command {
     ChangeLayout(Layout),
     FocusDirection(Direction),
     FocusDesktop(usize),
-    Kill(Window),
+    MoveDirection(Direction),
+    KillFocused,
 }
 
 impl Command {
@@ -23,6 +24,7 @@ impl Command {
         match self {
             Command::ChangeLayout(l) => Command::change_layout(wm, l),
             Command::FocusDirection(d) => Command::focus_direction(wm, d),
+            Command::KillFocused => Command::kill_focused(wm),
             _ => return,
         };
     }
@@ -33,5 +35,9 @@ impl Command {
 
     fn focus_direction(wm: &mut Worm, direction: &Direction) {
         wm.desktops.focus_window(direction);
+    }
+
+    fn kill_focused(wm: &mut Worm) {
+        wm.desktops.delete_focused_window();
     }
 }
