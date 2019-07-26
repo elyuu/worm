@@ -219,11 +219,14 @@ impl Connection {
 
     fn unmap_notify(&self, event: &xcb::UnmapNotifyEvent) -> Option<XEvent> {
         println!("UNMAP NOTIFY FOR WINDOW: {:?}", event.window());
+        let mut ret;
         if event.event() == self.root_window.as_xcb_window() {
-            None
+            ret = None;
         } else {
-            Some(XEvent::UnmapNotify(Window::new(&self, event.window())))
+            ret = Some(XEvent::UnmapNotify(Window::new(&self, event.window())))
         }
+        println!("UNMAP NOTIFY FOR WINDOW: {:?} END", event.window());
+        ret
     }
 
     pub fn unmap_window(&self, window: &Window) {
@@ -305,6 +308,7 @@ impl Connection {
     }
 
     pub fn delete_window(&self, window: &Window) {
+        xcb::grab_server(&self.connection);
         if self
             .get_wm_protocols(window)
             .contains(&self.atoms.WM_DELETE_WINDOW)
@@ -322,6 +326,7 @@ impl Connection {
                 self.atoms.WM_PROTOCOLS,
                 data,
             );
+            self.unmap_window(window);
             xcb::send_event(
                 &self.connection,
                 false,
@@ -332,6 +337,7 @@ impl Connection {
         } else {
             xcb::destroy_window(&self.connection, window.as_xcb_window());
         }
+        xcb::ungrab_server(&self.connection);
     }
 
     fn get_wm_protocols(&self, window: &Window) -> Vec<xcb::Atom> {
