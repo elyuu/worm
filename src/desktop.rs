@@ -264,7 +264,6 @@ impl Desktop {
     }
 
     fn delete_focused_window(&mut self) {
-        println!("WINDOW BEING DELETED: {:?}", self.get_focused_window().as_xcb_window());
         self.connection.delete_window(&self.get_focused_window());
         self.connection.flush();
         self.remove_window(&self.get_focused_window());
@@ -273,6 +272,5 @@ impl Desktop {
         // TODO: Maybe not this
         self.focused_last = 0;
         self.apply_layout();
-        println!("delete_focused_window EXIT");
     }
 }

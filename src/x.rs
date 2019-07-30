@@ -29,7 +29,7 @@ impl InternedAtoms {
 }
 
 /// Wrapping xcb::Window to not leak dependency
-#[derive(Clone, Copy, Debug, PartialEq)]
+#[derive(Clone, Copy, Debug, Default, PartialEq)]
 pub struct Window {
     pub window: xcb::Window,
     pub x: u32,
@@ -218,14 +218,15 @@ impl Connection {
     }
 
     fn unmap_notify(&self, event: &xcb::UnmapNotifyEvent) -> Option<XEvent> {
-        println!("UNMAP NOTIFY FOR WINDOW: {:?}", event.window());
         let mut ret;
         if event.event() == self.root_window.as_xcb_window() {
             ret = None;
         } else {
-            ret = Some(XEvent::UnmapNotify(Window::new(&self, event.window())))
+            // Avoiding a looking for the window geo through Window cons
+            let mut window = Window::default();
+            window.window = event.window();
+            ret = Some(XEvent::UnmapNotify(window));
         }
-        println!("UNMAP NOTIFY FOR WINDOW: {:?} END", event.window());
         ret
     }
 
@@ -242,7 +243,16 @@ impl Connection {
     }
 
     fn destroy_notify(&self, event: &xcb::DestroyNotifyEvent) -> Option<XEvent> {
-        Some(XEvent::DestroyNotify(Window::new(&self, event.window())))
+        let mut ret;
+        if event.event() == self.root_window.as_xcb_window() {
+            ret = None;
+        } else {
+            // Avoiding a looking for the window geo through Window cons
+            let mut window = Window::default();
+            window.window = event.window();
+            ret = Some(XEvent::UnmapNotify(window));
+        }
+        ret
     }
 
     pub fn grab_keys(&self, window: &Window, keys: &KeyMap) {
@@ -326,7 +336,7 @@ impl Connection {
                 self.atoms.WM_PROTOCOLS,
                 data,
             );
-            self.unmap_window(window);
+            //self.unmap_window(window);
             xcb::send_event(
                 &self.connection,
                 false,
@@ -353,9 +363,10 @@ impl Connection {
 
     /// function to find xcb::idow geometry as (x, y, width, height)
     pub fn get_window_geometry(&self, window: xcb::Window) -> (u32, u32, u32, u32) {
+        println!("GETTING GEO FOR WINDOW: {}", window);
         let geo = xcb::get_geometry(&self.connection, window)
             .get_reply()
-            .expect("Could not get window geometry");
+            .expect(&format!("Could not get window geometry for window: {}", window));
         (
             geo.x() as u32,
             geo.y() as u32,

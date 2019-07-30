@@ -123,12 +123,12 @@ impl Worm {
     }
 
     fn unmanage(&mut self, window: &x::Window) {
-        if !self.desktops.contains(window) {
+        if !self.is_managed(window) {
             return;
         }
 
-        self.connection.stop_window_events(window);
-        self.connection.unmap_window(window);
+        //self.connection.stop_window_events(window);
+        //self.connection.unmap_window(window);
         self.desktops.remove_window(window);
     }
 
