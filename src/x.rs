@@ -366,7 +366,10 @@ impl Connection {
         println!("GETTING GEO FOR WINDOW: {}", window);
         let geo = xcb::get_geometry(&self.connection, window)
             .get_reply()
-            .expect(&format!("Could not get window geometry for window: {}", window));
+            .expect(&format!(
+                "Could not get window geometry for window: {}",
+                window
+            ));
         (
             geo.x() as u32,
             geo.y() as u32,

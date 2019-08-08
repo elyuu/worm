@@ -15,8 +15,8 @@ pub struct Desktop {
     active: bool,
     layout: Layout,
     windows: Vec<x::Window>,
-    focused_window: usize,
-    focused_last: usize,
+    focused_window: Option<usize>,
+    focused_last: Option<usize>,
     connection: Rc<x::Connection>,
     screen: Screen,
 }
@@ -37,8 +37,10 @@ impl Desktops {
         self.desktops[self.focused_desktop].add_window(window);
     }
 
+    // TODO: Change this
     pub fn remove_window(&mut self, window: &x::Window) {
-        self.desktops[self.focused_desktop].remove_window(window);
+        let window_index = self.desktops[self.focused_desktop].get_window_index(window);
+        self.desktops[self.focused_desktop].remove_window(window_index);
     }
 
     pub fn layout(&self) -> Layout {
@@ -55,6 +57,10 @@ impl Desktops {
 
     // TODO: Cleanup is needed
     pub fn focus_window(&mut self, direction: &Direction) {
+        if self.desktops[self.focused_desktop].focused_window.is_none() {
+            return;
+        }
+
         match self.layout() {
             Layout::Tile => self.focus_window_tile(direction),
             Layout::Monocle => self.focus_window_monocle(direction),
@@ -67,54 +73,69 @@ impl Desktops {
             Direction::Up => {
                 // TODO: This would need to be compared to num_master global
                 // config variable if that gets supported
-                if self.desktops[self.focused_desktop].focused_window == 0 {
+                if self.desktops[self.focused_desktop].focused_window == Some(0) {
                     return;
-                } else if self.desktops[self.focused_desktop].focused_window - 1 == 0 {
+                } else if self.desktops[self.focused_desktop].focused_window.unwrap() - 1 == 0 {
                     return;
                 }
                 self.desktops[self.focused_desktop].focused_last =
                     self.desktops[self.focused_desktop].focused_window;
-                self.desktops[self.focused_desktop].focused_window -= 1;
+                match self.desktops[self.focused_desktop].focused_window.as_mut() {
+                    Some(i) => *i -= 1,
+                    None => {},
+                };
                 self.desktops[self.focused_desktop].update_focus();
             }
             Direction::Down => {
-                if self.desktops[self.focused_desktop].focused_window == 0 {
+                if self.desktops[self.focused_desktop].focused_window == Some(0) {
                     return;
-                } else if self.desktops[self.focused_desktop].focused_window + 1
+                } else if self.desktops[self.focused_desktop].focused_window.unwrap() + 1
                     == self.desktops[self.focused_desktop].windows.len()
                 {
                     return;
                 }
                 self.desktops[self.focused_desktop].focused_last =
                     self.desktops[self.focused_desktop].focused_window;
-                self.desktops[self.focused_desktop].focused_window += 1;
+                match self.desktops[self.focused_desktop].focused_window.as_mut() {
+                    Some(i) => *i += 1,
+                    None => {},
+                };
                 self.desktops[self.focused_desktop].update_focus();
             }
             // TODO: This would need to be compared to num_master global
             // config variable if that gets supported, not 0
             Direction::Left => {
-                if self.desktops[self.focused_desktop].focused_window == 0 {
+                if self.desktops[self.focused_desktop].focused_window == Some(0) {
                     return;
                 }
                 self.desktops[self.focused_desktop].focused_last =
                     self.desktops[self.focused_desktop].focused_window;
-                self.desktops[self.focused_desktop].focused_window = 0;
+                match self.desktops[self.focused_desktop].focused_window.as_mut() {
+                    Some(i) => *i = 0,
+                    None => {},
+                };
                 self.desktops[self.focused_desktop].update_focus();
             }
             // TODO: This would need to be compared to num_master global
             // config variable if that gets supported, not 0
             Direction::Right => {
-                if self.desktops[self.focused_desktop].focused_window != 0 {
+                if self.desktops[self.focused_desktop].focused_window != Some(0) {
                     return;
                 }
-                if self.desktops[self.focused_desktop].focused_last == 0
+                if self.desktops[self.focused_desktop].focused_last == Some(0)
                     && self.desktops[self.focused_desktop].windows.len() > 1
                 {
-                    self.desktops[self.focused_desktop].focused_last = 1
+                    match self.desktops[self.focused_desktop].focused_last.as_mut() {
+                        Some(i) => *i = 1,
+                        None => {},
+                    };
                 }
                 self.desktops[self.focused_desktop].focused_window =
                     self.desktops[self.focused_desktop].focused_last;
-                self.desktops[self.focused_desktop].focused_last = 0;
+                match self.desktops[self.focused_desktop].focused_window.as_mut() {
+                    Some(i) => *i = 0,
+                    None => {},
+                };
                 self.update_focus();
             }
         }
@@ -139,7 +160,7 @@ impl Desktops {
     }
 
     // TODO: Probably propogate the Option
-    fn get_focused_window(&self) -> x::Window {
+    fn get_focused_window(&self) -> Option<x::Window> {
         self.desktops[self.focused_desktop].get_focused_window()
     }
 
@@ -155,7 +176,7 @@ impl Desktop {
         active: bool,
         layout: Layout,
         windows: Vec<x::Window>,
-        focused_window: usize,
+        focused_window: Option<usize>,
         connection: Rc<x::Connection>,
         screen: &Screen,
     ) -> Desktop {
@@ -164,8 +185,8 @@ impl Desktop {
             active,
             layout,
             windows: windows,
-            focused_window,
-            focused_last: 0,
+            focused_window: focused_window,
+            focused_last: None,
             connection,
             screen: screen.clone(),
         }
@@ -180,11 +201,9 @@ impl Desktop {
         self.apply_layout();
     }
 
-    fn remove_window(&mut self, window: &x::Window) {
-        self.windows.remove(
-            self.get_window_idx(window)
-                .expect("Trying to remove a non managed window"),
-        );
+    // TODO: Should this return Option<usize> ?
+    fn remove_window(&mut self, index: Option<usize>) {
+        index.map(|i| self.windows.remove(i));
     }
 
     fn layout(&self) -> Layout {
@@ -212,24 +231,34 @@ impl Desktop {
         // TODO: Set focus on a window maybe
     }
 
+    // TODO: Maybe propogate option
     fn update_focus(&self) {
-        self.connection.focus_window(self.get_focused_window());
+        if let Some(focused) = self.get_focused_window() {
+            self.connection.focus_window(focused);
+        } else {
+            return;
+        }
     }
 
     fn cycle_window_forward(&mut self) {
         if self.layout() != Layout::Monocle {
             panic!("Trying to cylce on non monocle layout");
         }
-        if self.focused_window == self.windows.len() - 1 {
-            self.connection.unmap_window(&self.get_focused_window());
-            self.focused_last = self.focused_window;
-            self.focused_window = 0;
-            self.connection.map_window(&self.get_focused_window());
+
+        if let Some(focused) = self.get_focused_window() {
+            if self.focused_window == Some(self.windows.len() - 1) {
+                self.connection.unmap_window(&focused);
+                self.focused_last = self.focused_window;
+                self.focused_window = Some(0);
+                self.connection.map_window(&focused);
+            } else {
+                self.connection.unmap_window(&focused);
+                self.focused_last = self.focused_window;
+                self.focused_window.map(|mut i| i += 1);
+                self.connection.map_window(&focused);
+            }
         } else {
-            self.connection.unmap_window(&self.get_focused_window());
-            self.focused_last = self.focused_window;
-            self.focused_window += 1;
-            self.connection.map_window(&self.get_focused_window());
+            return;
         }
     }
 
@@ -237,24 +266,40 @@ impl Desktop {
         if self.layout() != Layout::Monocle {
             panic!("Trying to cylce on non monocle layout");
         }
-        if self.focused_window == 0 {
-            self.connection.unmap_window(&self.get_focused_window());
-            self.focused_last = 0;
-            self.focused_window = self.windows.len() - 1;
-            self.connection.map_window(&self.get_focused_window());
+
+        if let Some(focused) = self.get_focused_window() {
+            if self.focused_window == Some(0) {
+                self.connection.unmap_window(&focused);
+                self.focused_last = Some(0);
+                match self.focused_window.as_mut() {
+                    Some(i) => *i = self.windows.len() - 1,
+                    None => {},
+                };
+                self.connection.map_window(&focused);
+            } else {
+                self.connection.unmap_window(&focused);
+                self.focused_last = self.focused_window;
+                match self.focused_window.as_mut() {
+                    Some(i) => *i -= 1,
+                    None => {},
+                };
+                self.connection.map_window(&focused);
+            }
         } else {
-            self.connection.unmap_window(&self.get_focused_window());
-            self.focused_last = self.focused_window;
-            self.focused_window -= 1;
-            self.connection.map_window(&self.get_focused_window());
+            return;
         }
     }
 
-    fn get_focused_window(&self) -> x::Window {
-        self.windows[self.focused_window]
+
+    /// Gets the focused x::Window or panics if focused is None
+    fn get_focused_window(&self) -> Option<x::Window> {
+        match self.focused_window {
+            Some(i) => Some(self.windows[i]),
+            None => None,
+        }
     }
 
-    fn get_window_idx(&self, window: &x::Window) -> Option<usize> {
+    fn get_window_index(&self, window: &x::Window) -> Option<usize> {
         for (i, win) in self.windows.iter().enumerate() {
             if win.as_xcb_window() == window.as_xcb_window() {
                 return Some(i);
@@ -264,13 +309,21 @@ impl Desktop {
     }
 
     fn delete_focused_window(&mut self) {
-        self.connection.delete_window(&self.get_focused_window());
-        self.connection.flush();
-        self.remove_window(&self.get_focused_window());
-        self.focused_window = self.focused_last;
+        if self.focused_window.is_none() {
+            return;
+        }
 
-        // TODO: Maybe not this
-        self.focused_last = 0;
-        self.apply_layout();
+        if let Some(focused) = self.get_focused_window() {
+            self.connection.delete_window(&focused);
+            self.connection.flush();
+            self.remove_window(self.focused_window);
+
+            // FIXME: SET FOCUS
+            self.apply_layout();
+        } else {
+            return;
+        }
+
+
     }
 }

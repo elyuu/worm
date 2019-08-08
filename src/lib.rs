@@ -66,7 +66,7 @@ impl Worm {
                 false,
                 Layout::Tile,
                 existing_windows.clone(),
-                0,
+                None,
                 connection.clone(),
                 &screen,
             ))
