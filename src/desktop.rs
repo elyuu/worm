@@ -6,8 +6,8 @@ use crate::x;
 use crate::Screen;
 
 pub struct Desktops {
-    desktops: Vec<Desktop>,
-    focused_desktop: usize,
+    pub desktops: Vec<Desktop>,
+    pub focused_desktop: usize,
 }
 
 pub struct Desktop {
@@ -15,8 +15,8 @@ pub struct Desktop {
     active: bool,
     layout: Layout,
     windows: Vec<x::Window>,
-    focused_window: Option<usize>,
-    focused_last: Option<usize>,
+    pub focused_window: Option<usize>,
+    pub focused_last: Option<usize>,
     connection: Rc<x::Connection>,
     screen: Screen,
 }
@@ -57,10 +57,6 @@ impl Desktops {
 
     // TODO: Cleanup is needed
     pub fn focus_window(&mut self, direction: &Direction) {
-        if self.desktops[self.focused_desktop].focused_window.is_none() {
-            return;
-        }
-
         match self.layout() {
             Layout::Tile => self.focus_window_tile(direction),
             Layout::Monocle => self.focus_window_monocle(direction),
@@ -176,7 +172,6 @@ impl Desktop {
         active: bool,
         layout: Layout,
         windows: Vec<x::Window>,
-        focused_window: Option<usize>,
         connection: Rc<x::Connection>,
         screen: &Screen,
     ) -> Desktop {
@@ -185,7 +180,7 @@ impl Desktop {
             active,
             layout,
             windows: windows,
-            focused_window: focused_window,
+            focused_window: None,
             focused_last: None,
             connection,
             screen: screen.clone(),
@@ -197,13 +192,19 @@ impl Desktop {
     }
 
     fn add_window(&mut self, window: x::Window) {
+        if self.focused_window.is_none() {
+            self.focused_window = Some(0);
+            self.focused_last = None;
+        }
         self.windows.push(window);
         self.apply_layout();
     }
 
-    // TODO: Should this return Option<usize> ?
-    fn remove_window(&mut self, index: Option<usize>) {
-        index.map(|i| self.windows.remove(i));
+    fn remove_window(&mut self, index: Option<usize>) -> Option<x::Window>{
+        match index {
+            Some(i) => Some(self.windows.remove(i)),
+            None => None,
+        }
     }
 
     fn layout(&self) -> Layout {
@@ -318,8 +319,11 @@ impl Desktop {
             self.connection.flush();
             self.remove_window(self.focused_window);
 
-            // FIXME: SET FOCUS
+            // FIXME: Make sure this works
+            self.focused_window = self.focused_last;
+            self.focused_last = None;
             self.apply_layout();
+            self.update_focus();
         } else {
             return;
         }
