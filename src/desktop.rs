@@ -57,6 +57,10 @@ impl Desktops {
 
     // TODO: Cleanup is needed
     pub fn focus_window(&mut self, direction: &Direction) {
+        if self.desktops[self.focused_desktop].get_focused_window().is_none() {
+            return;
+        }
+
         match self.layout() {
             Layout::Tile => self.focus_window_tile(direction),
             Layout::Monocle => self.focus_window_monocle(direction),
