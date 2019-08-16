@@ -312,18 +312,28 @@ impl Desktop {
     }
 
     fn delete_focused_window(&mut self) {
-        if self.focused_window.is_none() {
-            return;
-        }
-
         if let Some(focused) = self.get_focused_window() {
+            let last;
+            if self.focused_last != None {
+                last = self.windows[self.focused_last.unwrap()];
+            } else {
+                last = self.windows[self.focused_window.unwrap() - 1];
+            }
             self.connection.delete_window(&focused);
             self.connection.flush();
             self.remove_window(self.focused_window);
 
-            // FIXME: Make sure this works
-            self.focused_window = self.focused_last;
-            self.focused_last = None;
+            if self.windows.len() == 1 {
+                self.focused_window = None;
+                self.focused_last = None;
+            } else if self.windows.len() == 2 {
+                self.focused_window = Some(1);
+                self.focused_last = None;
+            } else {
+                self.focused_window = self.get_window_index(&last);
+                self.focused_last = None;
+            }
+
             self.apply_layout();
             self.update_focus();
         } else {
