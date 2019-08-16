@@ -37,7 +37,6 @@ impl Desktops {
         self.desktops[self.focused_desktop].add_window(window);
     }
 
-    // TODO: Change this
     pub fn remove_window(&mut self, window: &x::Window) {
         let window_index = self.desktops[self.focused_desktop].get_window_index(window);
         self.desktops[self.focused_desktop].remove_window(window_index);
@@ -85,7 +84,7 @@ impl Desktops {
                     self.desktops[self.focused_desktop].focused_window;
                 match self.desktops[self.focused_desktop].focused_window.as_mut() {
                     Some(i) => *i -= 1,
-                    None => {},
+                    None => {}
                 };
                 self.desktops[self.focused_desktop].update_focus();
             }
@@ -127,7 +126,9 @@ impl Desktops {
                 } else if self.desktops[self.focused_desktop].windows.len() <= 1 {
                     return;
                 }
-                let last = self.desktops[self.focused_desktop].focused_last.unwrap_or(1);
+                let last = self.desktops[self.focused_desktop]
+                    .focused_last
+                    .unwrap_or(1);
                 match self.desktops[self.focused_desktop].focused_window.as_mut() {
                     Some(i) => *i = last,
                     None => {}
@@ -156,7 +157,6 @@ impl Desktops {
         self.desktops[self.focused_desktop].update_focus();
     }
 
-    // TODO: Probably propogate the Option
     fn get_focused_window(&self) -> Option<x::Window> {
         self.desktops[self.focused_desktop].get_focused_window()
     }
@@ -200,7 +200,6 @@ impl Desktop {
         self.windows.push(window);
         self.apply_layout();
         self.update_focus();
-
     }
 
     fn remove_window(&mut self, index: Option<usize>) -> Option<x::Window> {
@@ -316,18 +315,21 @@ impl Desktop {
             let last;
             if self.focused_last != None {
                 last = self.windows[self.focused_last.unwrap()];
-            } else {
+            } else if self.windows.len() > 1 {
                 last = self.windows[self.focused_window.unwrap() - 1];
+            } else {
+                // Never used but needs to be set for the borrow later. Root window should never be invalidated
+                last = self.connection.root_window();
             }
             self.connection.delete_window(&focused);
             self.connection.flush();
             self.remove_window(self.focused_window);
 
-            if self.windows.len() == 1 {
+            if self.windows.len() == 0 {
                 self.focused_window = None;
                 self.focused_last = None;
-            } else if self.windows.len() == 2 {
-                self.focused_window = Some(1);
+            } else if self.windows.len() == 1 {
+                self.focused_window = Some(0);
                 self.focused_last = None;
             } else {
                 self.focused_window = self.get_window_index(&last);
