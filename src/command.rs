@@ -35,9 +35,11 @@ impl Command {
 
     fn focus_direction(wm: &mut Worm, direction: &Direction) {
         wm.desktops.focus_window(direction);
-        println!("FOCUSED: {:?}, FOCUSED_LAST: {:?}",
+        println!(
+            "FOCUSED: {:?}, FOCUSED_LAST: {:?}",
             wm.desktops.desktops[wm.desktops.focused_desktop].focused_window,
-            wm.desktops.desktops[wm.desktops.focused_desktop].focused_last);
+            wm.desktops.desktops[wm.desktops.focused_desktop].focused_last
+        );
     }
 
     fn kill_focused(wm: &mut Worm) {

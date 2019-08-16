@@ -57,7 +57,10 @@ impl Desktops {
 
     // TODO: Cleanup is needed
     pub fn focus_window(&mut self, direction: &Direction) {
-        if self.desktops[self.focused_desktop].get_focused_window().is_none() {
+        if self.desktops[self.focused_desktop]
+            .get_focused_window()
+            .is_none()
+        {
             return;
         }
 
@@ -98,7 +101,7 @@ impl Desktops {
                     self.desktops[self.focused_desktop].focused_window;
                 match self.desktops[self.focused_desktop].focused_window.as_mut() {
                     Some(i) => *i += 1,
-                    None => {},
+                    None => {}
                 };
                 self.desktops[self.focused_desktop].update_focus();
             }
@@ -112,7 +115,7 @@ impl Desktops {
                     self.desktops[self.focused_desktop].focused_window;
                 match self.desktops[self.focused_desktop].focused_window.as_mut() {
                     Some(i) => *i = 0,
-                    None => {},
+                    None => {}
                 };
                 self.desktops[self.focused_desktop].update_focus();
             }
@@ -121,24 +124,18 @@ impl Desktops {
             Direction::Right => {
                 if self.desktops[self.focused_desktop].focused_window != Some(0) {
                     return;
+                } else if self.desktops[self.focused_desktop].windows.len() <= 1 {
+                    return;
                 }
-                if self.desktops[self.focused_desktop].focused_last == Some(0)
-                    && self.desktops[self.focused_desktop].windows.len() > 1
-                {
-                    match self.desktops[self.focused_desktop].focused_last.as_mut() {
-                        Some(i) => *i = 1,
-                        None => {},
-                    };
-                }
-                self.desktops[self.focused_desktop].focused_window =
-                    self.desktops[self.focused_desktop].focused_last;
+                let last = self.desktops[self.focused_desktop].focused_last.unwrap_or(1);
                 match self.desktops[self.focused_desktop].focused_window.as_mut() {
-                    Some(i) => *i = 0,
-                    None => {},
+                    Some(i) => *i = last,
+                    None => {}
                 };
+                self.desktops[self.focused_desktop].focused_last = Some(0);
                 self.update_focus();
             }
-        }
+        };
     }
 
     fn focus_window_monocle(&mut self, direction: &Direction) {
@@ -202,9 +199,11 @@ impl Desktop {
         }
         self.windows.push(window);
         self.apply_layout();
+        self.update_focus();
+
     }
 
-    fn remove_window(&mut self, index: Option<usize>) -> Option<x::Window>{
+    fn remove_window(&mut self, index: Option<usize>) -> Option<x::Window> {
         match index {
             Some(i) => Some(self.windows.remove(i)),
             None => None,
@@ -278,7 +277,7 @@ impl Desktop {
                 self.focused_last = Some(0);
                 match self.focused_window.as_mut() {
                     Some(i) => *i = self.windows.len() - 1,
-                    None => {},
+                    None => {}
                 };
                 self.connection.map_window(&focused);
             } else {
@@ -286,7 +285,7 @@ impl Desktop {
                 self.focused_last = self.focused_window;
                 match self.focused_window.as_mut() {
                     Some(i) => *i -= 1,
-                    None => {},
+                    None => {}
                 };
                 self.connection.map_window(&focused);
             }
@@ -294,7 +293,6 @@ impl Desktop {
             return;
         }
     }
-
 
     /// Gets the focused x::Window or panics if focused is None
     fn get_focused_window(&self) -> Option<x::Window> {
@@ -331,7 +329,5 @@ impl Desktop {
         } else {
             return;
         }
-
-
     }
 }
