@@ -48,7 +48,7 @@ impl Layout {
 
         for window in windows {
             connection.stop_window_events(&window);
-            connection.map_window(&window);
+            //connection.map_window(&window);
             connection.configure_window(&window, &window_changes);
             connection.track_window_events(&window);
         }

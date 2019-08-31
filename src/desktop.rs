@@ -148,13 +148,13 @@ impl Desktops {
         match direction {
             Direction::Down | Direction::Right => {
                 self.desktops[self.focused_desktop].cycle_window_forward();
-                self.update_focus();
             }
             Direction::Up | Direction::Left => {
                 self.desktops[self.focused_desktop].cycle_window_backward();
-                self.update_focus();
             }
         }
+        self.update_focus();
+        //self.apply_layout();
     }
 
     fn update_focus(&self) {
@@ -257,12 +257,15 @@ impl Desktop {
                 self.connection.unmap_window(&focused);
                 self.focused_last = self.focused_window;
                 self.focused_window = Some(0);
-                self.connection.map_window(&focused);
+                self.connection.map_window(&self.get_focused_window().unwrap());
             } else {
                 self.connection.unmap_window(&focused);
                 self.focused_last = self.focused_window;
-                self.focused_window.map(|mut i| i += 1);
-                self.connection.map_window(&focused);
+                match self.focused_window.as_mut() {
+                    Some(i) => *i += 1,
+                    None => {}
+                };
+                self.connection.map_window(&self.get_focused_window().unwrap());
             }
         } else {
             return;
@@ -282,7 +285,7 @@ impl Desktop {
                     Some(i) => *i = self.windows.len() - 1,
                     None => {}
                 };
-                self.connection.map_window(&focused);
+                self.connection.map_window(&self.get_focused_window().unwrap());
             } else {
                 self.connection.unmap_window(&focused);
                 self.focused_last = self.focused_window;
@@ -290,14 +293,13 @@ impl Desktop {
                     Some(i) => *i -= 1,
                     None => {}
                 };
-                self.connection.map_window(&focused);
+                self.connection.map_window(&self.get_focused_window().unwrap());
             }
         } else {
             return;
         }
     }
 
-    /// Gets the focused x::Window or panics if focused is None
     fn get_focused_window(&self) -> Option<x::Window> {
         match self.focused_window {
             Some(i) => Some(self.windows[i]),
