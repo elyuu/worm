@@ -139,6 +139,10 @@ impl Desktops {
         };
     }
 
+    pub fn move_window_tile(&mut self, direction: &Direction) {
+        self.desktops[self.focused_desktop].move_window(direction);
+    }
+
     fn focus_window_monocle(&mut self, direction: &Direction) {
         // Treat both up/down as cylcle backward/forward
         match direction {
@@ -316,7 +320,8 @@ impl Desktop {
             if self.focused_last != None {
                 last = self.windows[self.focused_last.unwrap()];
             } else if self.windows.len() > 1 {
-                last = self.windows[self.focused_window.unwrap() - 1];
+                //last = self.windows[self.focused_window.unwrap() - 1];
+                last = self.windows[0];
             } else {
                 // Never used but needs to be set for the borrow later. Root window should never be invalidated
                 last = self.connection.root_window();
@@ -340,6 +345,77 @@ impl Desktop {
             self.update_focus();
         } else {
             return;
+        }
+    }
+
+    fn move_window(&mut self, direction: &Direction) {
+        if self.windows.is_empty() || self.windows.len() == 1 {
+            return;
+        }
+        if self.focused_window.is_none() {
+            return;
+        }
+        if self.focused_last.is_none() {
+            self.focused_last = Some(1);
+        }
+
+        let focused_window = self.focused_window.unwrap();
+
+        match direction {
+            Direction::Up => {
+                if focused_window == 0 || focused_window == 1 {
+                    return;
+                }
+
+                self.windows.swap(focused_window, focused_window - 1);
+                match self.focused_window.as_mut() {
+                    Some(i) => *i -= 1,
+                    None => {}
+                };
+                self.apply_layout();
+            },
+            Direction::Down => {
+                if focused_window == 0 || focused_window == self.windows.len() - 1 {
+                    return;
+                }
+
+                self.windows.swap(focused_window, focused_window + 1);
+                match self.focused_window.as_mut() {
+                    Some(i) => *i += 1,
+                    None => {}
+                };
+                self.apply_layout();
+            },
+            Direction::Left => {
+                if focused_window == 0 {
+                    return;
+                }
+                self.windows.swap(focused_window, 0);
+                match self.focused_last.as_mut() {
+                    Some(i) => *i = focused_window,
+                    None => {},
+                };
+                match self.focused_window.as_mut() {
+                    Some(i) => *i = 0,
+                    None => {}
+                };
+                self.apply_layout();
+            },
+            Direction::Right => {
+                if focused_window != 0 {
+                    return;
+                }
+                self.windows.swap(focused_window, self.focused_last.unwrap());
+                match self.focused_window.as_mut() {
+                    Some(i) => *i = self.focused_last.unwrap(),
+                    None => {}
+                };
+                match self.focused_last.as_mut() {
+                    Some(i) => *i = 0,
+                    None => {},
+                };
+                self.apply_layout();
+            },
         }
     }
 }

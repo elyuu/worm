@@ -41,9 +41,17 @@ pub struct Key {
 }
 
 impl Key {
-    pub fn new(modifier: &Modifier, key: KeySymbol) -> Key {
+    pub fn new(modifier: &[Modifier], key: KeySymbol) -> Key {
+        if modifier.is_empty() {
+            panic!("No modifiers supplied");
+        }
+        let mut mods = modifier[0].get_mod_mask();
+        for m in modifier[1..].iter() {
+            mods |= m.get_mod_mask();
+        };
+
         Key {
-            modifier: modifier.get_mod_mask(),
+            modifier: mods,
             key: key,
         }
     }

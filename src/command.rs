@@ -24,6 +24,7 @@ impl Command {
         match self {
             Command::ChangeLayout(l) => Command::change_layout(wm, l),
             Command::FocusDirection(d) => Command::focus_direction(wm, d),
+            Command::MoveDirection(d) => Command::move_direction(wm, d),
             Command::KillFocused => Command::kill_focused(wm),
             _ => return,
         };
@@ -40,6 +41,10 @@ impl Command {
             wm.desktops.desktops[wm.desktops.focused_desktop].focused_window,
             wm.desktops.desktops[wm.desktops.focused_desktop].focused_last
         );
+    }
+
+    fn move_direction(wm: &mut Worm, direction: &Direction) {
+        wm.desktops.move_window_tile(direction);
     }
 
     fn kill_focused(wm: &mut Worm) {

@@ -12,11 +12,11 @@ use layout::Layout;
 
 #[macro_export]
 macro_rules! bindings {
-    (  $( ($mod:expr, $key:expr, $command:expr) ),* ) => {
+    (  $( ($mods:expr, $key:expr, $command:expr) ),* ) => {
         {
             let mut binds = HashMap::new();
             $(
-                binds.insert(Key { modifier: $mod.get_mod_mask() , key: $key }, $command);
+                binds.insert(Key::new($mods, $key), $command);
             )*
             KeyMap { key_map: binds }
         }
