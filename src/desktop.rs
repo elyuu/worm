@@ -203,6 +203,9 @@ impl Desktop {
         }
         self.windows.push(window);
         self.apply_layout();
+        if self.layout == Layout::Monocle {
+            self.connection.map_window(&self.get_focused_window().unwrap());
+        }
         self.update_focus();
     }
 
@@ -318,10 +321,10 @@ impl Desktop {
 
     fn delete_focused_window(&mut self) {
         if let Some(focused) = self.get_focused_window() {
-            let last;
+            let last: x::Window;
             if self.focused_last != None {
                 last = self.windows[self.focused_last.unwrap()];
-            } else if self.windows.len() > 1 {
+            } else if self.windows.len() >= 1 {
                 //last = self.windows[self.focused_window.unwrap() - 1];
                 last = self.windows[0];
             } else {
@@ -339,11 +342,15 @@ impl Desktop {
                 self.focused_window = Some(0);
                 self.focused_last = None;
             } else {
+                println!("SETTING TO: {:?}", last);
                 self.focused_window = self.get_window_index(&last);
                 self.focused_last = None;
             }
 
             self.apply_layout();
+            if self.layout == Layout::Monocle && !self.focused_window.is_none() {
+                self.connection.map_window(&self.get_focused_window().unwrap());
+            }
             self.update_focus();
         } else {
             return;
