@@ -9,7 +9,7 @@ name = "worm"
 doc = false
 
 [dependencies]
-xcb = "0.8.2"
-xcb-util = { version="0.2.0", features=["ewmh", "icccm", "keysyms"] }
-x11 = "2.18.1"
+xcb = "0.9.0"
+xcb-util = { version="0.3.0", features=["ewmh", "icccm", "keysyms"] }
+x11 = "2.18.2"
 
